@@ -1,17 +1,17 @@
 {
   "name": "rendajs-dev",
   "displayName": "rendajs dev",
+  "publisher": "rendajs",
   "description": "A VSCode extension helping with developing the Renda engine and editor.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.71.0"
   },
   "activationEvents": [
-    "onCommand:rendajs-dev.helloWorld"
+    "onLanguage:javascript"
   ],
   "main": "./out/extension.js",
-  "contributes": {
-  },
+  "contributes": {},
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"

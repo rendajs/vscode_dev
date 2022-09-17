@@ -2,13 +2,28 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import * as path from "path";
 
+let outputChannel : vscode.OutputChannel | null = null;;
+
 export function activate(context: vscode.ExtensionContext) {
-	const disposable = vscode.languages.registerDocumentFormattingEditProvider("javascript", {
+	const log = vscode.window.createOutputChannel("Renda-dev");
+	outputChannel = log;
+
+	const formatterDisposable = vscode.languages.registerDocumentFormattingEditProvider("javascript", {
 		async provideDocumentFormattingEdits(document) {
 			const cwd = path.dirname(document.fileName);
-			const resultStr = await exec(`deno task lint-fix --ide-extension-file=${document.fileName}`, {
-				cwd,
-			});
+			const config = vscode.workspace.getConfiguration("renda-dev");
+			let cmd = config.get("formatterCommand") as string;
+			cmd = cmd.replaceAll("${formatFilePath}", document.fileName);
+			let resultStr;
+			try {
+				resultStr = await exec(cmd, {
+					cwd,
+				});
+			} catch (e) {
+				log.appendLine(String(e));
+				showOpenLogError("Failed to run renda-dev formatter.");
+			}
+			if (!resultStr) return [];
 			const result = JSON.parse(resultStr);
 			if (result.output == undefined) {
 				return [];
@@ -20,8 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}
 	});
-
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(formatterDisposable);
 }
 
 function exec(cmd: string, options: cp.ExecOptions = {}) {
@@ -33,5 +47,16 @@ function exec(cmd: string, options: cp.ExecOptions = {}) {
 				resolve(stdout);
 			}
 		});
-	})
+	});
+}
+
+async function showOpenLogError(message: string) {
+	const buttons = [];
+	if (outputChannel) {
+		buttons.push("Show log");
+	}
+	const result = await vscode.window.showErrorMessage(message, ...buttons);
+	if (result == "Show log") {
+		outputChannel?.show();
+	}
 }

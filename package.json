@@ -15,7 +15,18 @@
     "onLanguage:javascript"
   ],
   "main": "./out/extension.js",
-  "contributes": {},
+  "contributes": {
+    "configuration": {
+      "title": "Renda dev",
+      "properties": {
+        "renda-dev.formatterCommand": {
+          "type": "string",
+          "default": "deno task lint-fix --ide-extension-file=${formatFilePath}",
+          "markdownDescription": "The command that will be run when formatting. `${formatFilePath}` will be replaced with the absolute path of the file that needs to be formatted."
+        }
+      }
+    }
+  },
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",

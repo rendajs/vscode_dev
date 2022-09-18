@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import * as path from "path";
+import * as stream from "stream";
 
 let outputChannel : vscode.OutputChannel | null = null;;
 
@@ -14,39 +15,47 @@ export function activate(context: vscode.ExtensionContext) {
 			const config = vscode.workspace.getConfiguration("renda-dev");
 			let cmd = config.get("formatterCommand") as string;
 			cmd = cmd.replaceAll("${formatFilePath}", document.fileName);
-			let resultStr;
-			try {
-				resultStr = await exec(cmd, {
-					cwd,
-				});
-			} catch (e) {
-				log.appendLine(String(e));
+			const text = document.getText();
+			const result = await exec(cmd, text, {cwd});
+			if (!result.succes) {
+				log.appendLine(result.stdout);
+				log.appendLine(result.stderr);
 				showOpenLogError("Failed to run renda-dev formatter.");
 			}
-			if (!resultStr) return [];
-			const result = JSON.parse(resultStr);
-			if (result.output == undefined) {
-				return [];
-			} else {
-				const firstLine = document.lineAt(0);
-				const lastLine = document.lineAt(document.lineCount - 1);
-				const fullRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-				return [vscode.TextEdit.replace(fullRange, result.output)];
-			}
+			if (!result.stdout) return [];
+			const firstLine = document.lineAt(0);
+			const lastLine = document.lineAt(document.lineCount - 1);
+			const fullRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+			return [vscode.TextEdit.replace(fullRange, result.stdout)];
 		}
 	});
 	context.subscriptions.push(formatterDisposable);
 }
 
-function exec(cmd: string, options: cp.ExecOptions = {}) {
-	return new Promise<string>((resolve, reject) => {
-		cp.exec(cmd, options, (err, stdout, stderr) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(stdout);
-			}
+interface ExecResult {
+	succes: boolean;
+	stdout: string;
+	stderr: string;
+}
+
+function exec(cmd: string, stdin: string, options: cp.ExecOptions = {}) {
+
+	return new Promise<ExecResult>((resolve, reject) => {
+		const proc = cp.exec(cmd, options, (err, stdout, stderr) => {
+			resolve({succes: !err, stdout, stderr});
 		});
+		if (!proc.stdin) {
+			resolve({
+				succes: false,
+				stderr: "",
+				stdout: "",
+			});
+			return;
+		}
+		const stdinStream = new stream.Readable();
+		stdinStream.push(stdin);
+		stdinStream.push(null);
+		stdinStream.pipe(proc.stdin);
 	});
 }
 
